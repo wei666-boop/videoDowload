@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Page</title>
+    <link rel="stylesheet" href="/static/css/page.css">
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <!--不要乱放-->
+    <script src="/static/js/page.js" defer></script>
+    <script src="/static/js/check.js" defer></script>
+</head>
+<body>
+<div class="card">
+    <h3>恋人不行</h3>
+</div>
+<div class="card">
+    <h2>原名:《我们绝对不可能成为恋人,绝对不可能*似乎可行》</h2>
+</div>
+<div class="card">
+    <h3>OP:</h3>
+    <audio controls src="/static/image/lover.m4a"></audio>
+</div>
+<br>
+<div class="download">
+    <button class="control" onclick="controlWindow()">下载</button>
+</div>
+
+<div class="download">
+    <button onclick="window.location.href='./setting'">设置</button>
+</div>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true">
+    <div class="modal-content">
+        <h3>配置页面</h3>
+        链接:<input id="text-url" type="text" placeholder="请输入地址"/>
+        <br>
+        下载进度:<p id="progress">没有下载</p>
+        <label for="select-type">
+            选择下载类型:
+            <select id="select-type" >
+                <option value="audio">音频</option>
+                <option value="video">视频</option>
+            </select>
+        </label>
+
+        <label for="text-format">
+            格式选择:
+            <!--默认值为自动-->
+            <select id="text-format"  >
+                <option value="auto">自动</option>
+                <option value="custom">自定义</option>
+            </select>
+        </label>
+
+        <!--如果选的是自动那么这里就不显示-->
+        附加设置:
+        <label><input type="checkbox" id="text-subtitle" value="true"/>下载字幕(不一定会下载成功,有些视频无字幕)</label>
+        <label><input type="checkbox" id="text-thumbnail" value="true">下载视频封面</label>
+        <br>
+        <br>
+        <div class="btns">
+            <button class="window-dl" id="dl" onclick="videoDownload()">下载</button>
+            <button class="window-cl" id="close" onclick="closeWindow()">取消</button>
+        </div>
+    </div>
+</div>
+
+
+</body>
+</html>

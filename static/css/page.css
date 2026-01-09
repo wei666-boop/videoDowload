@@ -1,0 +1,89 @@
+body{
+    background:#f0f0f0 url("./../image/lover.png") no-repeat center / cover fixed
+}
+
+.card{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+.download{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+.control{
+    border-color:black;
+    border-style:solid;
+    border-radius:1rem;
+}
+
+.control:hover{
+    background-color:#f6b6c7;
+    animation: skip 2s ease
+}
+
+@keyframes skip {
+    0% { transform: scale(1.0);}
+    50%{transform:scale(1.1);}
+    100%{transform:scale(1.0);}
+}
+
+input{
+    border-radius:  4rem;
+    border-style:solid;
+}
+
+input:hover{
+    background-color:#ffefd6;
+}
+
+.modal{
+    position: fixed;
+    left:50%;
+    bottom:0;
+    width:50%;
+    background:linear-gradient(0deg,#f6b6c7,#ffefd6);
+    display:none;
+    justify-content:center;
+    align-items:flex-end;
+}
+
+.modal-content{
+    color:white;
+    font-style:italic;
+}
+
+.window-dl{
+    border-radius:  1rem;
+    border-color:#f6b6c7;
+    border-style:solid;
+}
+
+.window-dl:hover{
+    background-color:#f6b6c7;
+    transform:scale(1.05);
+}
+
+.window-cl{
+    border-radius:  4rem;
+    border-color:#ffefd6;
+    border-style:solid;
+}
+
+.window-cl:hover{
+    background-color:#ffefd6;
+    transform:scale(1.05);
+}
+
+.btns{
+    display:flex;
+    gap:150px;
+}
+
+select{
+    margin-top:10px;
+    border-radius: 4rem;
+}
