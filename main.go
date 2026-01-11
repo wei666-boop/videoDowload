@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	SerLog "videodowload/log"
 	"videodowload/utils"
 )
 
@@ -44,7 +45,7 @@ func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 
 // 下载函数
 func download(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.Body)
+	SerLog.WriteLog(1, r.Body, SerLog.GetLog("./log/service.log"))
 	var configStruct Config
 	//将发送过来的json数据映射到Config结构体中
 	err := json.NewDecoder(r.Body).Decode(&configStruct)
@@ -67,7 +68,7 @@ func download(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid url", http.StatusBadRequest)
 		return
 	}
-	fmt.Println(configStruct.Type)
+	SerLog.WriteLog(1, configStruct.Type, SerLog.GetLog("./log/service.log"))
 	//生成随机工作目录
 	dir, err := utils.RandomID()
 	if err != nil {
@@ -113,6 +114,7 @@ func download(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("Content-Type", "audio/mpeg")
+		w.Header().Set("Content-Disposition", "attachment;filename=\"audio.mp4\"")
 		faudio.Seek(0, 0)
 		io.Copy(w, faudio)
 		return
@@ -196,15 +198,18 @@ func download(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					return
 				}
-				fvideo, err := os.Open(dir + "\\vidio.mp4")
+				fvideo, err := os.Open(dir + "\\video.mp4")
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					return
 				}
+				w.Header().Set("Content-Disposition", "attachment;filename=\"video.mp4\"")
 				w.Header().Set("Content-Type", "video/mp4")
-				w.WriteHeader(http.StatusOK)
 				fvideo.Seek(0, 0)
-				io.Copy(w, fvideo)
+				if _, err = io.Copy(w, fvideo); err != nil {
+					http.Error(w, "下载失败", http.StatusBadRequest)
+					return
+				}
 				return
 			}
 		}
@@ -258,10 +263,10 @@ func download(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//处理临时文件
-	utils.HandleTmp(dir, w)
-	fmt.Println("已删除缓存文件")
+	os.Remove(dir + "\\output")
+	os.RemoveAll(dir)
 
-	fmt.Println("下载完成")
+	SerLog.WriteLog(1, "下载完成", SerLog.GetLog("./log/service.log"))
 
 }
 

@@ -21,6 +21,4 @@ func HandleTmp(dir string, w http.ResponseWriter) {
 		}
 	}
 
-	//最后删除临时目录
-	//os.RemoveAll(dir)
 }

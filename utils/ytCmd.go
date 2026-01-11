@@ -7,6 +7,7 @@ import (
 )
 
 func AudioAndVideoStart(cmd *exec.Cmd) error {
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {

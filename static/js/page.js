@@ -100,9 +100,9 @@ function videoDownload() {
         if(res.headers.get("Content-Type")?.includes("video/x-matroska"))
             output="output.mkv"
         else if(res.headers.get("Content-Type")?.includes("video/mp4"))
-            output="output.mp4"
+            output="video.mp4"
         else if(res.headers.get("Content-Type")?.includes("audio/mpeg"))
-            output="output.mp3"
+            output="audio.mp3"
         return res.blob().then(blob=>[blob,output])
     })//返回promise对象
         .then(([blob,output]) => {
