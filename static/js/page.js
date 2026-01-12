@@ -86,6 +86,8 @@ function videoDownload() {
 
     progressDOM.innerText="正在发送请求中"
 
+    url.innerText=""
+
     fetch("http://localhost:5443/dl/api", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
