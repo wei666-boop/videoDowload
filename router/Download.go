@@ -11,21 +11,20 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 	SerLog "videodowload/log"
 	"videodowload/model"
+	"videodowload/storage"
 	"videodowload/utils"
 )
 
 func Download(w http.ResponseWriter, r *http.Request) {
-	SerLog.WriteLog(1, r.Body, SerLog.GetLog("./log/service.log"))
+	SerLog.WriteLog(1, r.Body, SerLog.GetLog(model.GlobalPath.LogPath.Service))
 	var configStruct model.Config
-	var downloadhis model.DownLoadHis
 	//将发送过来的json数据映射到Config结构体中
 	err := json.NewDecoder(r.Body).Decode(&configStruct)
 
 	if err != nil {
-		http.Error(w, "invalid config", http.StatusBadRequest)
+		http.Error(w, "invalid config"+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -43,13 +42,14 @@ func Download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	downloadhis.URL = string(decordUrl)
-	downloadhis.Time = time.Now()
-	model.DownloadList = append(model.DownloadList, downloadhis)
+	//将现在记录存储进数据库
+	if err = storage.InsertData(string(decordUrl)); err != nil {
+		panic("添加数据失败" + err.Error())
+	}
 
-	SerLog.WriteLog(1, configStruct.Type, SerLog.GetLog("./log/service.log"))
+	SerLog.WriteLog(1, configStruct.Type, SerLog.GetLog(model.GlobalPath.LogPath.Service))
 	//生成随机工作目录
-	dir, err := utils.RandomID()
+	dir, err := utils.RandomID(model.GlobalPath.TempPath)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -245,6 +245,5 @@ func Download(w http.ResponseWriter, r *http.Request) {
 	os.Remove(dir + "\\output")
 	os.RemoveAll(dir)
 
-	SerLog.WriteLog(1, "下载完成", SerLog.GetLog("./log/service.log"))
-
+	SerLog.WriteLog(1, "下载完成", SerLog.GetLog(model.GlobalPath.LogPath.Service))
 }

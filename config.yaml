@@ -1,4 +1,5 @@
 service:
   port: 5443
 backend:
-  temp_path: "./temp"
+  store_log_path: "./store.log"
+  service_log_path: "./service.log"

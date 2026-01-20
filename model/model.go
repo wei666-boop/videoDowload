@@ -10,8 +10,18 @@ type Config struct {
 }
 
 type DownLoadHis struct {
-	URL  string
-	Time time.Time
+	Id       int       `json:"id"`
+	URL      string    `json:"uri"`
+	CreateAt time.Time `json:"time"`
 }
 
-var DownloadList []DownLoadHis
+type LogFilePath struct {
+	Store   string
+	Service string
+}
+type Path struct {
+	TempPath string
+	LogPath  LogFilePath
+}
+
+var GlobalPath Path

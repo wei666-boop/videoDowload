@@ -12,6 +12,12 @@ git clone https://github.com/wei666-boop/videoDowload
 
 然后你的电脑上需要有go语言相关的工具链，克隆完成后，进入根目录，执行:
 
+需要先现在依赖
+
+```shell
+go mod tidy
+```
+
 ```shell
 go run .
 ```

@@ -7,8 +7,8 @@ import (
 
 //创建随机目录
 
-func RandomID() (string, error) {
-	dir, err := os.MkdirTemp("temp", "id-*")
+func RandomID(path string) (string, error) {
+	dir, err := os.MkdirTemp(path, "id-*")
 	if err != nil {
 		return "", errors.New("not create dir")
 	}
