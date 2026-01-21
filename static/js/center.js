@@ -1,5 +1,5 @@
 async function loadRecords(){
-    const response=await fetch("http://localhost:5443/center/record")
+    const response=await fetch("/center/record")
     const records=await response.json()
 
     const tbody=document.getElementById("record-table-body")
@@ -20,7 +20,7 @@ async function loadRecords(){
 function clear (){
     const td=document.getElementById("record-table-body")
     td.innerHTML=""
-    fetch("http://localhost:5443/center/clear")
+    fetch("/center/clear")
         .then((res)=>{
             if(!res.ok){
                 alert("清空失败")

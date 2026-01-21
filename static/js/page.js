@@ -80,15 +80,11 @@ function videoDownload() {
         type: type,
     }
 
-    // const baseURL=new URL("http://localhost:5443/dl/api")
-    // baseURL.searchParams.append("config",JSON.stringify(config))
-
-
     progressDOM.innerText="正在发送请求中"
 
     url.innerText=""
 
-    fetch("http://localhost:5443/dl/api", {
+    fetch("/dl/api", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(config)
