@@ -17,12 +17,30 @@ import (
 	"videodowload/utils"
 )
 
-func parseConfig(w http.ResponseWriter, r *http.Request) (model.Config, error) {
+var (
+	VIDEOFILE string
+	AUDIOFILE string
+	SUBTITLE  string
+	THUMBNAIL string
+	MKVFILE   string
+)
+
+type operation func(w http.ResponseWriter, dir string, decodeUrl string)
+
+type key struct {
+	Type      string
+	Subtitle  string
+	Thumbnail string
+}
+
+func ParseConfig(w http.ResponseWriter, r *http.Request) (model.Config, error) {
 	var configStruct model.Config
 	//将发送过来的json数据映射到Config结构体中
+	fmt.Println(r.Body)
 	err := json.NewDecoder(r.Body).Decode(&configStruct)
+
 	if err != nil {
-		return model.Config{}, errors.New("数据解析失败")
+		return model.Config{}, errors.New("数据解析失败" + err.Error())
 	}
 	if configStruct.Url == "" {
 		return model.Config{}, errors.New("没有该资源")
@@ -36,13 +54,145 @@ func parseConfig(w http.ResponseWriter, r *http.Request) (model.Config, error) {
 	return configStruct, nil
 }
 
-//ToDo重构这段代码
+func downloadAudioOnly(w http.ResponseWriter, dir string, decodeUrl string) {
+	var args []string
+	args = utils.Audio(AUDIOFILE, decodeUrl)
+	cmd := exec.Command("yt-dlp", args...)
+	err := utils.AudioAndVideoStart(cmd)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	faudio, err := os.Open(filepath.Join(dir, "./video.mp3"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "audio/mpeg")
+	w.Header().Set("Content-Disposition", "attachment;filename=\"audio.mp4\"")
+	faudio.Seek(0, 0)
+	io.Copy(w, faudio)
+}
+
+func downloadVideoOnly(w http.ResponseWriter, dir string, decodeUrl string) {
+	var args []string
+	args = utils.Video(VIDEOFILE, decodeUrl)
+	cmd := exec.Command("yt-dlp", args...)
+	err := utils.AudioAndVideoStart(cmd)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	fvideo, err := os.Open(filepath.Join(dir, "./video.mp4"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Disposition", "attachment;filename=\"video.mp4\"")
+	w.Header().Set("Content-Type", "video/mp4")
+	fvideo.Seek(0, 0)
+	if _, err = io.Copy(w, fvideo); err != nil {
+		http.Error(w, "下载失败", http.StatusBadRequest)
+		return
+	}
+}
+
+func downloadVideoWithSubtitle(w http.ResponseWriter, dir string, decodeUrl string) {
+	var args []string
+	args = utils.Video(VIDEOFILE, decodeUrl)
+	cmd1 := exec.Command("yt-dlp", args...)
+	args = utils.Subtitle(SUBTITLE, decodeUrl)
+	cmd2 := exec.Command("yt-dlp", args...)
+	err := utils.AudioAndVideoStart(cmd1)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = utils.ThumbnailORSubtitleStart(cmd2)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+}
+
+func downloadVideoComplete(w http.ResponseWriter, dir string, decodeUrl string) {
+	var args []string
+	args = utils.Video(VIDEOFILE, decodeUrl)
+	cmd1 := exec.Command("yt-dlp", args...)
+	args = utils.Subtitle(SUBTITLE, decodeUrl)
+	cmd2 := exec.Command("yt-dlp", args...)
+	args = utils.Thumbnail(THUMBNAIL, decodeUrl)
+	cmd3 := exec.Command("yt-dlp", args...)
+	err := utils.AudioAndVideoStart(cmd1) // yt-dlp --write-subs --write-auto-subs --convert-subs srt url
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = utils.ThumbnailORSubtitleStart(cmd2)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = utils.ThumbnailORSubtitleStart(cmd3)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+}
+
+func downloadVideoWithThumbnail(w http.ResponseWriter, dir string, decodeUrl string) {
+	var args []string
+	args = utils.Video(VIDEOFILE, decodeUrl)
+	cmd1 := exec.Command("yt-dlp", args...)
+	args = utils.Thumbnail(SUBTITLE, decodeUrl)
+	cmd2 := exec.Command("yt-dlp", args...)
+	err := utils.AudioAndVideoStart(cmd1)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = utils.ThumbnailORSubtitleStart(cmd2)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+}
+
+var operations = make(map[key]operation, 5)
+
+func init() {
+	operations[key{
+		Type:      "audio",
+		Subtitle:  "false",
+		Thumbnail: "false",
+	}] = downloadAudioOnly
+	operations[key{
+		Type:      "video",
+		Subtitle:  "false",
+		Thumbnail: "false",
+	}] = downloadVideoOnly
+	operations[key{
+		Type:      "video",
+		Subtitle:  "false",
+		Thumbnail: "true",
+	}] = downloadVideoWithThumbnail
+	operations[key{
+		Type:      "video",
+		Subtitle:  "true",
+		Thumbnail: "false",
+	}] = downloadVideoWithSubtitle
+	operations[key{
+		Type:      "video",
+		Subtitle:  "true",
+		Thumbnail: "true",
+	}] = downloadVideoComplete
+}
 
 func Download(w http.ResponseWriter, r *http.Request) {
 	SerLog.WriteLog(1, r.Body, SerLog.GetLog(model.GlobalPath.LogPath.Service))
 	var configStruct model.Config
 
-	configStruct, err := parseConfig(w, r)
+	configStruct, err := ParseConfig(w, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -62,128 +212,29 @@ func Download(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println(dir)
 
-	var (
-		VIDEOFILE = filepath.Join(dir, "./video.mp3")
-		AUDIOFILE = filepath.Join(dir, "audio.mp4")
-		THUMBNAIL = filepath.Join(dir, "./video")
-		SUBTITLE  = filepath.Join(dir, "./video.srt")
-		MKVFILE   = filepath.Join(dir, "./output.mkv")
-	)
+	VIDEOFILE = filepath.Join(dir, "./video.mp4")
 
+	THUMBNAIL = filepath.Join(dir, "./video")
+	SUBTITLE = filepath.Join(dir, "./video.srt")
+	MKVFILE = filepath.Join(dir, "./output.mkv")
+	fmt.Println(VIDEOFILE)
 	var (
 		subtitlePath  = ""
 		thumbnailPath = ""
 	)
 
-	var args []string
-
 	//主要功能为不同的配置执行不同功能
 
-	//ToDo重构这个写的太复杂了
-
-	switch configStruct.Type {
-	case "audio":
-		args = utils.Audio(AUDIOFILE, decodeUrl)
-		cmd := exec.Command("yt-dlp", args...)
-		err = utils.AudioAndVideoStart(cmd)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		faudio, err := os.Open(filepath.Join(dir, "./video.mp3"))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "audio/mpeg")
-		w.Header().Set("Content-Disposition", "attachment;filename=\"audio.mp4\"")
-		faudio.Seek(0, 0)
-		io.Copy(w, faudio)
-		return
-	case "video":
-		if configStruct.Subtitle == "true" {
-			if configStruct.Thumbnail == "false" {
-				args = utils.Video(VIDEOFILE, decodeUrl)
-				cmd1 := exec.Command("yt-dlp", args...)
-				args = utils.Subtitle(SUBTITLE, decodeUrl)
-				cmd2 := exec.Command("yt-dlp", args...)
-				err = utils.AudioAndVideoStart(cmd1)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-					return
-				}
-				err = utils.ThumbnailORSubtitleStart(cmd2)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-					return
-				}
-			} else {
-				utils.Video(VIDEOFILE, decodeUrl)
-				cmd1 := exec.Command("yt-dlp", args...)
-				args = utils.Subtitle(SUBTITLE, decodeUrl)
-				cmd2 := exec.Command("yt-dlp", args...)
-				args = utils.Thumbnail(THUMBNAIL, decodeUrl)
-				cmd3 := exec.Command("yt-dlp", args...)
-				err = utils.AudioAndVideoStart(cmd1) // yt-dlp --write-subs --write-auto-subs --convert-subs srt url
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-					return
-				}
-				err = utils.ThumbnailORSubtitleStart(cmd2)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-					return
-				}
-				err = utils.ThumbnailORSubtitleStart(cmd3)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-					return
-				}
-			}
-		} else {
-			if configStruct.Thumbnail == "true" {
-				args = utils.Video(VIDEOFILE, decodeUrl)
-				cmd1 := exec.Command("yt-dlp", args...)
-				args = utils.Subtitle(SUBTITLE, decodeUrl)
-				cmd2 := exec.Command("yt-dlp", args...)
-				err = utils.AudioAndVideoStart(cmd1)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-					return
-				}
-				err = utils.ThumbnailORSubtitleStart(cmd2)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-					return
-				}
-			} else {
-				args = utils.Video(VIDEOFILE, decodeUrl)
-				cmd := exec.Command("yt-dlp", args...)
-				err = utils.AudioAndVideoStart(cmd)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-					return
-				}
-				fvideo, err := os.Open(filepath.Join(dir, "./video.mp4"))
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-					return
-				}
-				w.Header().Set("Content-Disposition", "attachment;filename=\"video.mp4\"")
-				w.Header().Set("Content-Type", "video/mp4")
-				fvideo.Seek(0, 0)
-				if _, err = io.Copy(w, fvideo); err != nil {
-					http.Error(w, "下载失败", http.StatusBadRequest)
-					return
-				}
-				return
-			}
-		}
-
-	default:
-		http.Error(w, "invalid format", http.StatusBadRequest)
-		return
+	Key := key{
+		Type:      configStruct.Type,
+		Subtitle:  configStruct.Subtitle,
+		Thumbnail: configStruct.Thumbnail,
 	}
+	download, ok := operations[Key]
+	if !ok {
+		panic("未找到相应的函数")
+	}
+	download(w, dir, decodeUrl)
 
 	//检查文件完整性(因为有一些视频受到由于平台的原因可能未提供完整资源)
 	//防止拓展名不一样

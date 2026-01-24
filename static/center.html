@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <title>下载中心</title>
     <link rel="stylesheet" href="/static/css/page.css">
+    <script src="/static/js/center.js" ></script>
 </head>
 <body>
 
 <h3>下载历史</h3>
 <div>
-    <button class="window-cl" onclick="clear()">清空历史记录</button>
+    <button class="window-cl" onclick="clearRecords()">清空历史记录</button>
 </div>
 <div>
     <table>
@@ -22,7 +23,6 @@
         </thead>
         <tbody id="record-table-body"></tbody>
     </table>
-    <script src="/static/js/center.js"></script>
     <script>
         loadRecords()
         setTimeout(loadRecords,10000)

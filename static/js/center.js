@@ -17,10 +17,12 @@ async function loadRecords(){
     
 }
 
-function clear (){
-    const td=document.getElementById("record-table-body")
-    td.innerHTML=""
-    fetch("/center/clear")
+function clearRecords(){
+    const tbody=document.getElementById("record-table-body")
+    tbody.innerText=""
+    fetch("/center/clear",{
+        method:"DELETE"
+    })
         .then((res)=>{
             if(!res.ok){
                 alert("清空失败")
@@ -28,5 +30,6 @@ function clear (){
         })
         .catch(err=>{
             console.error(err)
+            alert("清空历史记录时出错: " + err.message)
         })
 }

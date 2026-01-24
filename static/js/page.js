@@ -19,6 +19,10 @@ function controlWindow(){
 
 function videoDownload() {
     const url = document.getElementById("text-url")
+    if (url.value===""){
+        alert('请输入有效的网址')
+        return 
+    }
     const url64 = btoa(url.value)
 
     const subtitleDOM = document.getElementById("text-subtitle")
@@ -82,7 +86,8 @@ function videoDownload() {
 
     progressDOM.innerText="正在发送请求中"
 
-    url.innerText=""
+    //清空
+    url.value = ""
 
     fetch("/dl/api", {
         method: "POST",
