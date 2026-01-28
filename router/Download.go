@@ -17,15 +17,7 @@ import (
 	"videodowload/utils"
 )
 
-var (
-	VIDEOFILE string
-	AUDIOFILE string
-	SUBTITLE  string
-	THUMBNAIL string
-	MKVFILE   string
-)
-
-type operation func(w http.ResponseWriter, dir string, decodeUrl string)
+type operation func(w http.ResponseWriter, dir string, decodeUrl string, params model.Param)
 
 type key struct {
 	Type      string
@@ -54,9 +46,10 @@ func ParseConfig(w http.ResponseWriter, r *http.Request) (model.Config, error) {
 	return configStruct, nil
 }
 
-func downloadAudioOnly(w http.ResponseWriter, dir string, decodeUrl string) {
+func downloadAudioOnly(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) {
+	utils.WarmUp(utils.Client, decodeUrl)
 	var args []string
-	args = utils.Audio(AUDIOFILE, decodeUrl)
+	args = utils.Audio(param.AudioFile, decodeUrl)
 	cmd := exec.Command("yt-dlp", args...)
 	err := utils.AudioAndVideoStart(cmd)
 	if err != nil {
@@ -74,9 +67,10 @@ func downloadAudioOnly(w http.ResponseWriter, dir string, decodeUrl string) {
 	io.Copy(w, faudio)
 }
 
-func downloadVideoOnly(w http.ResponseWriter, dir string, decodeUrl string) {
+func downloadVideoOnly(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) {
+	utils.WarmUp(utils.Client, decodeUrl)
 	var args []string
-	args = utils.Video(VIDEOFILE, decodeUrl)
+	args = utils.Video(param.VideoFile, decodeUrl)
 	cmd := exec.Command("yt-dlp", args...)
 	err := utils.AudioAndVideoStart(cmd)
 	if err != nil {
@@ -97,11 +91,12 @@ func downloadVideoOnly(w http.ResponseWriter, dir string, decodeUrl string) {
 	}
 }
 
-func downloadVideoWithSubtitle(w http.ResponseWriter, dir string, decodeUrl string) {
+func downloadVideoWithSubtitle(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) {
+	utils.WarmUp(utils.Client, decodeUrl)
 	var args []string
-	args = utils.Video(VIDEOFILE, decodeUrl)
+	args = utils.Video(param.VideoFile, decodeUrl)
 	cmd1 := exec.Command("yt-dlp", args...)
-	args = utils.Subtitle(SUBTITLE, decodeUrl)
+	args = utils.Subtitle(param.Subtitle, decodeUrl)
 	cmd2 := exec.Command("yt-dlp", args...)
 	err := utils.AudioAndVideoStart(cmd1)
 	if err != nil {
@@ -115,13 +110,14 @@ func downloadVideoWithSubtitle(w http.ResponseWriter, dir string, decodeUrl stri
 	}
 }
 
-func downloadVideoComplete(w http.ResponseWriter, dir string, decodeUrl string) {
+func downloadVideoComplete(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) {
+	utils.WarmUp(utils.Client, decodeUrl)
 	var args []string
-	args = utils.Video(VIDEOFILE, decodeUrl)
+	args = utils.Video(param.VideoFile, decodeUrl)
 	cmd1 := exec.Command("yt-dlp", args...)
-	args = utils.Subtitle(SUBTITLE, decodeUrl)
+	args = utils.Subtitle(param.Subtitle, decodeUrl)
 	cmd2 := exec.Command("yt-dlp", args...)
-	args = utils.Thumbnail(THUMBNAIL, decodeUrl)
+	args = utils.Thumbnail(param.Thumbnail, decodeUrl)
 	cmd3 := exec.Command("yt-dlp", args...)
 	err := utils.AudioAndVideoStart(cmd1) // yt-dlp --write-subs --write-auto-subs --convert-subs srt url
 	if err != nil {
@@ -140,11 +136,12 @@ func downloadVideoComplete(w http.ResponseWriter, dir string, decodeUrl string) 
 	}
 }
 
-func downloadVideoWithThumbnail(w http.ResponseWriter, dir string, decodeUrl string) {
+func downloadVideoWithThumbnail(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) {
+	utils.WarmUp(utils.Client, decodeUrl)
 	var args []string
-	args = utils.Video(VIDEOFILE, decodeUrl)
+	args = utils.Video(param.VideoFile, decodeUrl)
 	cmd1 := exec.Command("yt-dlp", args...)
-	args = utils.Thumbnail(SUBTITLE, decodeUrl)
+	args = utils.Thumbnail(param.Thumbnail, decodeUrl)
 	cmd2 := exec.Command("yt-dlp", args...)
 	err := utils.AudioAndVideoStart(cmd1)
 	if err != nil {
@@ -212,12 +209,14 @@ func Download(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println(dir)
 
-	VIDEOFILE = filepath.Join(dir, "./video.mp4")
+	var params model.Param
 
-	THUMBNAIL = filepath.Join(dir, "./video")
-	SUBTITLE = filepath.Join(dir, "./video.srt")
-	MKVFILE = filepath.Join(dir, "./output.mkv")
-	fmt.Println(VIDEOFILE)
+	params.VideoFile = filepath.Join(dir, "./video.mp4")
+
+	params.Thumbnail = filepath.Join(dir, "./video")
+	params.Subtitle = filepath.Join(dir, "./video.srt")
+	params.MkvFile = filepath.Join(dir, "./output.mkv")
+	fmt.Println(params.VideoFile)
 	var (
 		subtitlePath  = ""
 		thumbnailPath = ""
@@ -234,7 +233,7 @@ func Download(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		panic("未找到相应的函数")
 	}
-	download(w, dir, decodeUrl)
+	download(w, dir, decodeUrl, params)
 
 	//检查文件完整性(因为有一些视频受到由于平台的原因可能未提供完整资源)
 	//防止拓展名不一样
@@ -248,18 +247,17 @@ func Download(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if _, err = os.Stat(SUBTITLE); err == nil {
-		subtitlePath = SUBTITLE
+	if _, err = os.Stat(params.Subtitle); err == nil {
+		subtitlePath = params.Subtitle
 	}
 
 	//处理视频以及附属文件
-	//TODO问题似乎出现在这里
 	if thumbnailPath == "" && subtitlePath == "" {
 		http.Error(w, errors.New("there is a unknown error").Error(), http.StatusBadRequest)
 		return
 	}
 
-	err = utils.GetMKV(VIDEOFILE, subtitlePath, thumbnailPath, MKVFILE)
+	err = utils.GetMKV(params.VideoFile, subtitlePath, thumbnailPath, params.MkvFile)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
