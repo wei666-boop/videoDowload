@@ -17,7 +17,7 @@ import (
 	"videodowload/utils"
 )
 
-type operation func(w http.ResponseWriter, dir string, decodeUrl string, params model.Param)
+type operation func(w http.ResponseWriter, dir string, decodeUrl string, params model.Param) error
 
 type key struct {
 	Type      string
@@ -27,11 +27,21 @@ type key struct {
 
 func ParseConfig(w http.ResponseWriter, r *http.Request) (model.Config, error) {
 	var configStruct model.Config
+
+	// 检查请求体是否为空
+	if r.Body == nil {
+		return model.Config{}, errors.New("请求体为空")
+	}
+
 	//将发送过来的json数据映射到Config结构体中
 	fmt.Println(r.Body)
 	err := json.NewDecoder(r.Body).Decode(&configStruct)
 
 	if err != nil {
+		// 特殊处理EOF错误
+		if err.Error() == "EOF" {
+			return model.Config{}, errors.New("请求体为空或格式错误")
+		}
 		return model.Config{}, errors.New("数据解析失败" + err.Error())
 	}
 	if configStruct.Url == "" {
@@ -46,7 +56,7 @@ func ParseConfig(w http.ResponseWriter, r *http.Request) (model.Config, error) {
 	return configStruct, nil
 }
 
-func downloadAudioOnly(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) {
+func downloadAudioOnly(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) error {
 	utils.WarmUp(utils.Client, decodeUrl)
 	var args []string
 	args = utils.Audio(param.AudioFile, decodeUrl)
@@ -54,20 +64,21 @@ func downloadAudioOnly(w http.ResponseWriter, dir string, decodeUrl string, para
 	err := utils.AudioAndVideoStart(cmd)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
 	faudio, err := os.Open(filepath.Join(dir, "./video.mp3"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
 	w.Header().Set("Content-Type", "audio/mpeg")
 	w.Header().Set("Content-Disposition", "attachment;filename=\"audio.mp4\"")
 	faudio.Seek(0, 0)
 	io.Copy(w, faudio)
+	return nil
 }
 
-func downloadVideoOnly(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) {
+func downloadVideoOnly(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) error {
 	utils.WarmUp(utils.Client, decodeUrl)
 	var args []string
 	args = utils.Video(param.VideoFile, decodeUrl)
@@ -75,23 +86,24 @@ func downloadVideoOnly(w http.ResponseWriter, dir string, decodeUrl string, para
 	err := utils.AudioAndVideoStart(cmd)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
 	fvideo, err := os.Open(filepath.Join(dir, "./video.mp4"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
 	w.Header().Set("Content-Disposition", "attachment;filename=\"video.mp4\"")
 	w.Header().Set("Content-Type", "video/mp4")
 	fvideo.Seek(0, 0)
 	if _, err = io.Copy(w, fvideo); err != nil {
 		http.Error(w, "下载失败", http.StatusBadRequest)
-		return
+		return err
 	}
+	return nil
 }
 
-func downloadVideoWithSubtitle(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) {
+func downloadVideoWithSubtitle(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) error {
 	utils.WarmUp(utils.Client, decodeUrl)
 	var args []string
 	args = utils.Video(param.VideoFile, decodeUrl)
@@ -101,16 +113,17 @@ func downloadVideoWithSubtitle(w http.ResponseWriter, dir string, decodeUrl stri
 	err := utils.AudioAndVideoStart(cmd1)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
 	err = utils.ThumbnailORSubtitleStart(cmd2)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
+	return nil
 }
 
-func downloadVideoComplete(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) {
+func downloadVideoComplete(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) error {
 	utils.WarmUp(utils.Client, decodeUrl)
 	var args []string
 	args = utils.Video(param.VideoFile, decodeUrl)
@@ -122,21 +135,22 @@ func downloadVideoComplete(w http.ResponseWriter, dir string, decodeUrl string, 
 	err := utils.AudioAndVideoStart(cmd1) // yt-dlp --write-subs --write-auto-subs --convert-subs srt url
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
 	err = utils.ThumbnailORSubtitleStart(cmd2)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
 	err = utils.ThumbnailORSubtitleStart(cmd3)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
+	return nil
 }
 
-func downloadVideoWithThumbnail(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) {
+func downloadVideoWithThumbnail(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) error {
 	utils.WarmUp(utils.Client, decodeUrl)
 	var args []string
 	args = utils.Video(param.VideoFile, decodeUrl)
@@ -146,13 +160,14 @@ func downloadVideoWithThumbnail(w http.ResponseWriter, dir string, decodeUrl str
 	err := utils.AudioAndVideoStart(cmd1)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
 	err = utils.ThumbnailORSubtitleStart(cmd2)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
+	return nil
 }
 
 var operations = make(map[key]operation, 5)
@@ -212,11 +227,11 @@ func Download(w http.ResponseWriter, r *http.Request) {
 	var params model.Param
 
 	params.VideoFile = filepath.Join(dir, "./video.mp4")
-
+	params.AudioFile = filepath.Join(dir, "./audio.mp3")
 	params.Thumbnail = filepath.Join(dir, "./video")
 	params.Subtitle = filepath.Join(dir, "./video.srt")
 	params.MkvFile = filepath.Join(dir, "./output.mkv")
-	fmt.Println(params.VideoFile)
+	fmt.Printf("%#v", params)
 	var (
 		subtitlePath  = ""
 		thumbnailPath = ""
@@ -229,11 +244,19 @@ func Download(w http.ResponseWriter, r *http.Request) {
 		Subtitle:  configStruct.Subtitle,
 		Thumbnail: configStruct.Thumbnail,
 	}
+	fmt.Println(decodeUrl)
 	download, ok := operations[Key]
 	if !ok {
 		panic("未找到相应的函数")
 	}
-	download(w, dir, decodeUrl, params)
+	if err := download(w, dir, decodeUrl, params); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if Key.Thumbnail == "false" && Key.Subtitle == "false" {
+		return
+	}
 
 	//检查文件完整性(因为有一些视频受到由于平台的原因可能未提供完整资源)
 	//防止拓展名不一样
@@ -250,7 +273,6 @@ func Download(w http.ResponseWriter, r *http.Request) {
 	if _, err = os.Stat(params.Subtitle); err == nil {
 		subtitlePath = params.Subtitle
 	}
-
 	//处理视频以及附属文件
 	if thumbnailPath == "" && subtitlePath == "" {
 		http.Error(w, errors.New("there is a unknown error").Error(), http.StatusBadRequest)

@@ -84,10 +84,38 @@ func InsertData(uri string) error {
 }
 
 func ClearData() error {
-	_, err := GetDB().Exec(`DELETE FROM HISTORY`)
+	// 开始事务
+
+	//这里使用事务，因为删除计数器和删除表的数据要求同时成功
+
+	tx, err := GetDB().Begin()
 	if err != nil {
+		SerLog.WriteLog(3, "开始事务失败"+err.Error(), SerLog.GetLog(model.GlobalPath.LogPath.Store))
+		return err
+	}
+
+	// 删除所有数据
+	_, err = tx.Exec(`DELETE FROM HISTORY`)
+	if err != nil {
+		tx.Rollback()
 		SerLog.WriteLog(3, "清空数据失败"+err.Error(), SerLog.GetLog(model.GlobalPath.LogPath.Store))
 		return err
 	}
+
+	// 重置AUTOINCREMENT计数器
+	_, err = tx.Exec(`DELETE FROM sqlite_sequence WHERE name='HISTORY'`)
+	if err != nil {
+		tx.Rollback()
+		SerLog.WriteLog(3, "重置ID计数器失败"+err.Error(), SerLog.GetLog(model.GlobalPath.LogPath.Store))
+		return err
+	}
+
+	// 提交事务
+	err = tx.Commit()
+	if err != nil {
+		SerLog.WriteLog(3, "提交事务失败"+err.Error(), SerLog.GetLog(model.GlobalPath.LogPath.Store))
+		return err
+	}
+
 	return nil
 }

@@ -13,26 +13,6 @@ import (
 	"videodowload/utils"
 )
 
-// 添加CORS中间件
-func enableCORS(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// 设置CORS头
-		//允许所有跨域请求 支持常用方法 允许自定义请求头
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With")
-
-		// 处理预检请求
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		// 调用下一个处理函数
-		next.ServeHTTP(w, r)
-	}
-}
-
 func InitConfig() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
@@ -78,30 +58,8 @@ func main() {
 	SerLog.WriteLog(1, "数据库初始化成功", SerLog.GetLog(model.GlobalPath.LogPath.Store))
 	defer storage.CloseDB()
 
-	fs := http.FileServer(http.Dir("./static"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	router.RouterRegister()
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./static/index.html")
-	})
-
-	http.HandleFunc("/setting", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./static/setting.html")
-	})
-
-	http.HandleFunc("/dl", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./static/page.html")
-	})
-
-	http.HandleFunc("/dl/api", enableCORS(router.Download))
-
-	http.HandleFunc("/center", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./static/center.html")
-	})
-
-	http.HandleFunc("/center/record", enableCORS(router.DownloadHistory))
-
-	http.HandleFunc("/center/clear", enableCORS(router.ClearData))
 	fmt.Println("已开始监听")
 	http.ListenAndServe(":"+viper.GetString("service.port"), nil)
 }
