@@ -17,6 +17,23 @@ import (
 	"videodowload/utils"
 )
 
+type DownloadService struct {
+	Store *storage.Store
+	Path  utils.Path
+}
+
+var service *DownloadService
+
+func NewDownloadService(store *storage.Store, path utils.Path) {
+	if store == nil {
+		panic("传进来的数据库为空")
+	}
+	service = &DownloadService{
+		Store: store,
+		Path:  path,
+	}
+}
+
 type operation func(w http.ResponseWriter, dir string, decodeUrl string, params model.Param) error
 
 type key struct {
@@ -59,7 +76,7 @@ func ParseConfig(w http.ResponseWriter, r *http.Request) (model.Config, error) {
 func downloadAudioOnly(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) error {
 	utils.WarmUp(utils.Client, decodeUrl)
 	var args []string
-	args = utils.Audio(param.AudioFile, decodeUrl)
+	args = utils.OnlyAudio(param.AudioFile, decodeUrl)
 	cmd := exec.Command("yt-dlp", args...)
 	err := utils.AudioAndVideoStart(cmd)
 	if err != nil {
@@ -81,7 +98,7 @@ func downloadAudioOnly(w http.ResponseWriter, dir string, decodeUrl string, para
 func downloadVideoOnly(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) error {
 	utils.WarmUp(utils.Client, decodeUrl)
 	var args []string
-	args = utils.Video(param.VideoFile, decodeUrl)
+	args = utils.OnlyVideo(param.VideoFile, decodeUrl)
 	cmd := exec.Command("yt-dlp", args...)
 	err := utils.AudioAndVideoStart(cmd)
 	if err != nil {
@@ -106,16 +123,9 @@ func downloadVideoOnly(w http.ResponseWriter, dir string, decodeUrl string, para
 func downloadVideoWithSubtitle(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) error {
 	utils.WarmUp(utils.Client, decodeUrl)
 	var args []string
-	args = utils.Video(param.VideoFile, decodeUrl)
-	cmd1 := exec.Command("yt-dlp", args...)
-	args = utils.Subtitle(param.Subtitle, decodeUrl)
-	cmd2 := exec.Command("yt-dlp", args...)
-	err := utils.AudioAndVideoStart(cmd1)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return err
-	}
-	err = utils.ThumbnailORSubtitleStart(cmd2)
+	args = utils.SrtAndVideo(param.VideoFile, decodeUrl)
+	cmd := exec.Command("yt-dlp", args...)
+	err := utils.AudioAndVideoStart(cmd)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return err
@@ -126,23 +136,9 @@ func downloadVideoWithSubtitle(w http.ResponseWriter, dir string, decodeUrl stri
 func downloadVideoComplete(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) error {
 	utils.WarmUp(utils.Client, decodeUrl)
 	var args []string
-	args = utils.Video(param.VideoFile, decodeUrl)
-	cmd1 := exec.Command("yt-dlp", args...)
-	args = utils.Subtitle(param.Subtitle, decodeUrl)
-	cmd2 := exec.Command("yt-dlp", args...)
-	args = utils.Thumbnail(param.Thumbnail, decodeUrl)
-	cmd3 := exec.Command("yt-dlp", args...)
-	err := utils.AudioAndVideoStart(cmd1) // yt-dlp --write-subs --write-auto-subs --convert-subs srt url
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return err
-	}
-	err = utils.ThumbnailORSubtitleStart(cmd2)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return err
-	}
-	err = utils.ThumbnailORSubtitleStart(cmd3)
+	args = utils.Complete(param.VideoFile, decodeUrl)
+	cmd := exec.Command("yt-dlp", args...)
+	err := utils.AudioAndVideoStart(cmd) // yt-dlp --write-subs --write-auto-subs --convert-subs srt url
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return err
@@ -153,16 +149,9 @@ func downloadVideoComplete(w http.ResponseWriter, dir string, decodeUrl string, 
 func downloadVideoWithThumbnail(w http.ResponseWriter, dir string, decodeUrl string, param model.Param) error {
 	utils.WarmUp(utils.Client, decodeUrl)
 	var args []string
-	args = utils.Video(param.VideoFile, decodeUrl)
-	cmd1 := exec.Command("yt-dlp", args...)
-	args = utils.Thumbnail(param.Thumbnail, decodeUrl)
-	cmd2 := exec.Command("yt-dlp", args...)
-	err := utils.AudioAndVideoStart(cmd1)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return err
-	}
-	err = utils.ThumbnailORSubtitleStart(cmd2)
+	args = utils.ThumbAndVideo(param.VideoFile, decodeUrl)
+	cmd := exec.Command("yt-dlp", args...)
+	err := utils.AudioAndVideoStart(cmd)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return err
@@ -201,7 +190,7 @@ func init() {
 }
 
 func Download(w http.ResponseWriter, r *http.Request) {
-	SerLog.WriteLog(1, r.Body, SerLog.GetLog(model.GlobalPath.LogPath.Service))
+	SerLog.WriteLog(1, r.Body, SerLog.GetLog(service.Path.LogPath.Service))
 	var configStruct model.Config
 
 	configStruct, err := ParseConfig(w, r)
@@ -211,12 +200,12 @@ func Download(w http.ResponseWriter, r *http.Request) {
 	}
 	decodeUrl := configStruct.Url
 	//将现在记录存储进数据库
-	if err = storage.InsertData(decodeUrl); err != nil {
+	if err = service.Store.InsertData(decodeUrl); err != nil {
 		panic("添加数据失败" + err.Error())
 	}
-	SerLog.WriteLog(1, configStruct.Type, SerLog.GetLog(model.GlobalPath.LogPath.Service))
+	SerLog.WriteLog(1, configStruct.Type, SerLog.GetLog(service.Path.LogPath.Service))
 	//生成随机工作目录
-	dir, err := utils.RandomID(model.GlobalPath.TempPath)
+	dir, err := utils.RandomID(service.Path.TempPath)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -231,7 +220,7 @@ func Download(w http.ResponseWriter, r *http.Request) {
 	params.Thumbnail = filepath.Join(dir, "./video")
 	params.Subtitle = filepath.Join(dir, "./video.srt")
 	params.MkvFile = filepath.Join(dir, "./output.mkv")
-	fmt.Printf("%#v", params)
+	fmt.Printf("%#v\n", params)
 	var (
 		subtitlePath  = ""
 		thumbnailPath = ""
@@ -246,6 +235,7 @@ func Download(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Println(decodeUrl)
 	download, ok := operations[Key]
+	fmt.Println(download)
 	if !ok {
 		panic("未找到相应的函数")
 	}
@@ -253,6 +243,7 @@ func Download(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	fmt.Println("开始下载视频")
 
 	if Key.Thumbnail == "false" && Key.Subtitle == "false" {
 		return
@@ -299,7 +290,7 @@ func Download(w http.ResponseWriter, r *http.Request) {
 	os.Remove(dir + "./output")
 	os.RemoveAll(dir)
 
-	SerLog.WriteLog(1, "下载完成", SerLog.GetLog(model.GlobalPath.LogPath.Service))
+	SerLog.WriteLog(1, "下载完成", SerLog.GetLog(service.Path.LogPath.Service))
 }
 
 /*

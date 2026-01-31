@@ -8,9 +8,19 @@ import (
 	"videodowload/storage"
 )
 
+type HistoryService struct {
+	Store *storage.Store
+}
+
+var historyService HistoryService
+
+func NewHistoryService(store *storage.Store) {
+	historyService.Store = store
+}
+
 func DownloadHistory(w http.ResponseWriter, r *http.Request) {
 	var list []model.DownLoadHis
-	list, err := storage.FindData()
+	list, err := historyService.Store.FindData()
 	if err != nil {
 		//因为在查询数据库阶段就失败的话就会给用户提示,所以说在网络发送阶段就无需给予提示
 		http.Error(w, err.Error(), http.StatusInternalServerError)
