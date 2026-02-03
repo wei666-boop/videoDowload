@@ -1,0 +1,99 @@
+definitions:
+  model.Config:
+    properties:
+      subtitle:
+        type: string
+      thumbnail:
+        type: string
+      type:
+        type: string
+      url:
+        type: string
+    type: object
+  model.DownLoadHis:
+    properties:
+      id:
+        type: integer
+      time:
+        type: string
+      uri:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /clear:
+    delete:
+      consumes:
+      - application/json
+      description: 删除数据库中的所有下载历史记录
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Database cleared successfully
+          schema:
+            type: string
+        "400":
+          description: 清空数据库失败
+          schema:
+            type: string
+        "405":
+          description: 请求方法不允许
+          schema:
+            type: string
+      summary: 清空数据库
+      tags:
+      - 数据管理
+  /download:
+    post:
+      consumes:
+      - application/json
+      description: 根据用户的不同需求来下载视频，支持纯音频、纯视频、带字幕、带缩略图等多种格式
+      parameters:
+      - description: 下载配置信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.Config'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 下载成功，返回视频文件流
+          schema:
+            type: string
+        "400":
+          description: 请求参数错误或下载失败
+          schema:
+            type: string
+        "500":
+          description: 服务器内部错误
+          schema:
+            type: string
+      summary: 下载视频
+      tags:
+      - 下载服务
+  /history:
+    get:
+      consumes:
+      - application/json
+      description: 获取所有视频下载的历史记录列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 下载历史记录列表
+          schema:
+            items:
+              $ref: '#/definitions/model.DownLoadHis'
+            type: array
+        "500":
+          description: 服务器内部错误
+          schema:
+            type: string
+      summary: 获取下载历史
+      tags:
+      - 历史记录
+swagger: "2.0"

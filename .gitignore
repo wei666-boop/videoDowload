@@ -1,0 +1,6 @@
+.idea
+go.sum
+go.mod
+history.db
+sonar-project.properties
+yt-dlp.exe

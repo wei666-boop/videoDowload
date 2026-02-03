@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/spf13/viper"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"videodowload/App"
@@ -17,8 +19,7 @@ func InitConfig() {
 	viper.AddConfigPath(".")
 
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println(err)
-		panic("读取配置失败")
+		panic("读取配置失败" + err.Error())
 	}
 }
 
@@ -62,7 +63,11 @@ func main() {
 		panic("初始化路径失败")
 	}
 	//加载资源
-	db, _ := utils.NewDB()
+	db, err := utils.NewDB()
+	if err != nil {
+		SerLog.WriteLog(3, "数据库初始化失败"+err.Error(), SerLog.GetLog(path.LogPath.Store))
+		panic("数据库初始化失败" + err.Error())
+	}
 	if db == nil {
 		SerLog.WriteLog(3, "数据库指针为空", SerLog.GetLog(path.LogPath.Store))
 		panic("数据库指针为空")
@@ -70,12 +75,16 @@ func main() {
 	defer db.Close()
 	SerLog.WriteLog(1, "数据库初始化成功", SerLog.GetLog(path.LogPath.Store))
 	store := storage.Store{DataBase: db}
-	err := store.InitTable()
+	err = store.InitTable()
 	if err != nil {
 		SerLog.WriteLog(3, "初始化表"+err.Error(), SerLog.GetLog(path.LogPath.Store))
 	}
 	a := App.NewApp(&store, path)
 	fmt.Println("已开始监听")
+	go func() {
+		fmt.Println("pprof listening on :6060")
+		http.ListenAndServe(":6060", nil)
+	}()
 	a.Run(viper.GetString("service.port"))
 }
 

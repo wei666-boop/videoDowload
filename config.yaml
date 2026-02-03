@@ -3,3 +3,6 @@ service:
 backend:
   store_log_path: "./store.log"
   service_log_path: "./service.log"
+database:
+  path: "E:/videodowload/history.db"
+

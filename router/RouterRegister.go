@@ -1,7 +1,9 @@
 package router
 
 import (
+	httpSwagger "github.com/swaggo/http-swagger"
 	"net/http"
+	_ "videodowload/docs"
 	"videodowload/middle"
 )
 
@@ -26,6 +28,8 @@ func RouterRegister(mux *http.ServeMux) {
 	mux.HandleFunc("/center", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "./static/center.html")
 	})
+
+	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
 
 	mux.HandleFunc("/center/record", middle.EnableCORS(DownloadHistory))
 

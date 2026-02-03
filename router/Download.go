@@ -189,6 +189,16 @@ func init() {
 	}] = downloadVideoComplete
 }
 
+// @Summary 下载视频
+// @Description 根据用户的不同需求来下载视频，支持纯音频、纯视频、带字幕、带缩略图等多种格式
+// @Tags 下载服务
+// @Accept json
+// @Produce json
+// @Param request body model.Config true "下载配置信息" example({"url":"base64编码的视频URL","type":"video","subtitle":"true","thumbnail":"false"})
+// @Success 200 {string} string "下载成功，返回视频文件流"
+// @Failure 400 {object} string "请求参数错误或下载失败"
+// @Failure 500 {object} string "服务器内部错误"
+// @Router /download [post]
 func Download(w http.ResponseWriter, r *http.Request) {
 	SerLog.WriteLog(1, r.Body, SerLog.GetLog(service.Path.LogPath.Service))
 	var configStruct model.Config

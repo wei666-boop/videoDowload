@@ -18,6 +18,14 @@ func NewHistoryService(store *storage.Store) {
 	historyService.Store = store
 }
 
+// @Summary 获取下载历史
+// @Description 获取所有视频下载的历史记录列表
+// @Tags 历史记录
+// @Accept json
+// @Produce json
+// @Success 200 {array} model.DownLoadHis "下载历史记录列表"
+// @Failure 500 {object} string "服务器内部错误"
+// @Router /history [get]
 func DownloadHistory(w http.ResponseWriter, r *http.Request) {
 	var list []model.DownLoadHis
 	list, err := historyService.Store.FindData()
